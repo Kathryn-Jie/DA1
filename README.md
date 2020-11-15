@@ -1,6 +1,6 @@
 # SIT 2005 Data Analysis 1 - Number of Deaths in Malaysia 1990-2017: Statistical Analysis on Hypertension, Obesity and Physical Inactivity by R
 
-Obejtives:
+Objectives:
 - To analyse the number of deaths caused by high blood pressure in Malaysia.
 - To study the relationship between the number of deaths caused by high blood pressure
 and obesity.
