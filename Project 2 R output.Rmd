@@ -1,0 +1,170 @@
+---
+title: "Project 2"
+author: "Kathryn Jie"
+date: "5/1/2020"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+data1<-read.csv("Assignment.csv")
+mydata<-ts(data1[,-1],start = 1990,end=2017,frequency = 1)
+str(mydata)
+```
+
+```{r}
+library(fpp2)
+library(ggplot2)
+library(dplyr)
+```
+
+
+Objective 1: To study the time series data (High Blood Pressure)
+```{r}
+data<-mydata[,5]
+autoplot(data)+xlab("Year")+ylab("Number of deaths")+ggtitle("Number of deaths caused by High Blood Pressure in Malaysia from 1990 to 2017")
+```
+Trend, no seasonal`
+
+Forecast (One step forecast) - Not suitable
+```{r}
+e1<-tsCV(mydata[,5],ses,h=1)
+mean(e1^2,na.rm=T)
+mean(abs(e1),na.rm = T)
+
+e2<-tsCV(mydata[,5],holt,h=1)
+mean(e2^2,na.rm=T)
+mean(abs(e2),na.rm = T)
+
+e3<-tsCV(mydata[,5],holt,damped=T,h=1)
+mean(e3^2,na.rm=T)
+mean(abs(e3),na.rm = T)
+
+e4<-tsCV(mydata[,5],rwf,drift=TRUE,h=1)
+mean(e4^2,na.rm=T)
+mean(abs(e4),na.rm = T)
+```
+
+Forecasting methods
+```{r}
+data5a<-window(data,start=1990,end=2013)
+data5b<-window(data,start=2013)
+
+autoplot(data)+autolayer(holt(data5a,h=5),series="Holt's Linear Trend",PI=FALSE)+autolayer(ses(data5a,h=5),series="Simple exponential smoothing",PI=FALSE)+autolayer(holt(data5a,h=5,damped = T),series="Damped Trend",PI=FALSE)+autolayer(rwf(data5a,h=5,drift = TRUE),series="Drift",PI=FALSE)+xlab("Year")+ylab("Number of deaths")+ggtitle("Number of deaths caused by High Blood Pressure in Malaysia from 1990 to 2017")
+```
+
+Check accurancy
+```{r}
+print("Holt's Linear Method")
+accuracy(holt(data5a,h=4),data5b)
+print("Simple Exponential Smoothing")
+accuracy(ses(data5a,h=4),data5b)
+print("Damped Holt's Linear Method")
+accuracy(holt(data5a,h=4,damped = TRUE),data5b)
+print("Drift Method")
+accuracy(rwf(data5a,h=4,drift = TRUE),data5b)
+```
+Best method: Damped Holt's Linear
+
+
+```{r}
+best<-holt(data,damped=TRUE, h=5)
+autoplot(best)+xlab("Year")+ylab("Number of deaths")+ggtitle("Prediction of number of deaths  caused by High Blood Pressure in Malaysia from 1990 to 2017 by Damped Holt's Linear Method")
+```
+
+```{r}
+best$model
+```
+
+```{r}
+checkresiduals(best)
+```
+
+
+Compare with ETS
+```{r}
+fit.ets<-ets(data5a)
+summary(fit.ets)
+```
+MAN: Holt’s linear method with multiplicative errors
+
+
+```{r}
+print("ETS")
+a1<-fit.ets%>%forecast(h=5)%>%accuracy(data)
+a1[,c("RMSE","MAE","MAPE","MASE")]
+print("Damped Holt's Linear Method")
+accuracy(holt(data5a,h=4,damped = TRUE),data5b)
+```
+
+ETS better than Damped Holt's Linear
+```{r}
+data %>% forecast(h=5) %>%
+  autoplot() +xlab("Year")+ylab("Number of deaths")+ggtitle("Prediction of number of deaths  caused by High Blood Pressure in Malaysia from 1990 to 2017 by ETS(M,A,N)")
+  
+```
+
+```{r}
+best2 <-data %>% forecast(h=5)
+checkresiduals(best2)
+```
+uncorelated
+
+```{r}
+res <- residuals(best2)
+shapiro.test(res)
+
+```
+p larger, do not reject null H. normal
+
+Objective 2:To study the relationship between High Blood Pressure and Obesity
+Objective 3:To study the relationship between High Blood Pressure and Low Physical Activity
+
+Scatterplot
+```{r}
+ggplot(data1, aes(x=HighBloodPressure, y=Obesity)) + geom_point() + geom_smooth(method = "lm", se = FALSE) + ggtitle("Scatterplot of number of deaths caused by High Blood Pressure and Obesity in Malaysia from 1990 to 2017") 
+ggplot(data1, aes(x=HighBloodPressure, y=LowPhysicalActivity)) + geom_point() + geom_smooth(method = "lm", se = FALSE) + ggtitle("Scatterplot of number of deaths caused by High Blood Pressure and Low Physical Activity in Malaysia from 1990 to 2017")
+```
+
+Correlation
+```{r}
+cor(mydata[,3:5])
+```
+HBP~Obesity 0.9970044, HBP~LPA 0.9887101
+
+Linear Model
+```{r}
+modelA <- lm(HighBloodPressure ~ Obesity, mydata)
+modelB <- lm(HighBloodPressure ~ LowPhysicalActivity, mydata)
+```
+
+ANOVA
+```{r}
+anova(modelA)
+anova(modelB)
+```
+Modify : Reject H0. mean different
+Based on the very small p-value, the results indicate that there is evidence to support the hypothesis that the mean numbers of deaths caused by high blood pressure are different for at least one combination of risk factors. Obesity and low physical activity are significant in the case of deaths caused by high blood pressure. 
+
+Multiple Linear Regression
+```{r}
+modelC <- lm(HighBloodPressure~ Obesity + LowPhysicalActivity , mydata)
+summary(modelC)
+```
+p-value is smaller, so obesity  has a significant effect on number of death caused by high blood pressure. Low physical activity does not seem to have significant effect when the number of death is blocked by obesity.
+
+```{r}
+par(mfrow = c(2,2))
+plot(modelC)
+```
+
+```{r}
+resC <- residuals(modelC)
+Box.test(resC,lag=10, fitdf=0, type="Lj")
+shapiro.test(resC)
+checkresiduals(modelC)
+```
+The model appears to be fairly well fit, though our evidence indicates the score may not be from a normally distributed population. Looking at the Q-Q plot, we can see that towards the higher end, the points are not on the line, so we may not be dealing with normality here.
